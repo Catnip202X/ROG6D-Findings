@@ -63,4 +63,6 @@ are in `12-solution.md`.
 | `09-next-leads.md` | open leads and what a future attempt should start from |
 | `10-port-target.md` | the working 5.10 reference, constant mapping, BSS scratch analysis |
 | `11-port-log.md` | iteration log of the port, including the dead ends |
+| `13-app-and-sudaemon.md` | one-tap app, why it needs Shizuku, and the persistent root `su` daemon |
+| `android-app/` | the app project (source; the exploit binary is not included) |
 | `12-solution.md` | **the working configuration, verification output, and how `stamp-off 0x100` was measured** |
