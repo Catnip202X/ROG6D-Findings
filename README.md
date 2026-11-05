@@ -35,6 +35,10 @@ part of this repository.
 - Byte-exact profile editor for the GhostLock binary format
 - A set of diagnostic techniques that work without any kernel introspection
   (see `07-methodology.md`)
+- **Discovery that `perf_event_paranoid = -1` on this build**: kernel IP and
+  register sampling are available from the shell context, giving a userspace
+  KASLR leak (`_text = 0xffffffef80c00000` measured) and per-build geometry
+  measurement — the observation channel the earlier work lacked
 
 ## Documents
 
