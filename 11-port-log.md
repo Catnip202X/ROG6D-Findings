@@ -60,3 +60,44 @@ suspects are the objects the walk reads after the stamp:
 Available diagnostics for the next iteration: `--equal-ctl` (control shot that
 must survive), `--all-poison` (firing test), `--task-y`, `--pc-target`,
 `--stamp-off` sweep, plus `--log` which survives a hard reset via `O_DSYNC`.
+
+
+## Iteration 2 — the crash is inside the trigger, in every mode
+
+Runs tried after the stamp was proven to land (each crashes at stage `t`):
+
+| Mode | Purpose | Result |
+|---|---|---|
+| default (`SCHED_OTHER↔SCHED_BATCH`) | full chain | crash at `t` |
+| `--poison` | stamp landing test | **panics ⇒ stamp lands** |
+| `--equal-ctl` (equal_prio 121) | entry check should return early | crash at `t` |
+| `--in-class --equal-ctl` | keep CFS, avoid class switch | crash at `t` |
+| `--equal-ctl --equal-prio 120` | alternative live prio | crash at `t` |
+
+Observed environment difference: `RTPRIO soft=0 hard=0` here — the port's
+RLIMIT_RTPRIO raise is a no-op on this device, so the `SCHED_FIFO` trigger path
+is unavailable. The port has an unprivileged alternative (`--in-class`,
+`sched_setattr` staying in CFS) and it does not help either.
+
+`stage` file after each run reads `t`, the `trigger_pi` entry marker, and the
+`[T] stage=...` printf never executes — so the kernel dies inside the
+`__sched_setscheduler` / `rt_mutex_adjust_pi` call itself.
+
+Capturing the oops via `logcat -b kernel` during the run produced no oops lines
+(1098 lines captured, none matching), consistent with earlier findings on this
+device.
+
+## Next experiments
+
+1. Determine whether the crash needs the armed waiter at all — if a sched change
+   on a plain task also dies, the problem is not the stamped object graph.
+2. Because `--equal-ctl` is *supposed* to skip the chain walk and still crashes,
+   the prio comparison is probably not reached; the suspect is whatever
+   `rt_mutex_adjust_pi` walks before it, i.e. the task's PI waiter list, which
+   contains the armed waiter whose fields are stamped.
+3. If the stamped prio really does not match the live prio, sweeping
+   `--equal-prio` (120, 121, and the actual value reported by
+   `get_task_nice`) is cheap.
+4. The BSS scratch region is still unverified. If it is not zero at runtime,
+   the very first dereference of the fake lock faults — which would look exactly
+   like this. A different, larger gap from the 88 candidates is a cheap A/B.
