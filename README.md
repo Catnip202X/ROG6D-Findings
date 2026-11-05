@@ -50,6 +50,10 @@ per boot**, not once per command. A reboot restores stock state.
 2. open the app in `android-app/`, tap the single button
 3. same result, same `su` helper
 
+> `bin/` contains a prebuilt binary that is hard-coded for this exact kernel and
+> build. Running it on any other build is expected to panic the kernel, not to
+> fail cleanly. Verify `uname -r` first.
+
 Rules that matter: run **once per boot** (a second run in the same boot panics
 the kernel), restart Shizuku after every reboot, and always call the helper as
 `su -c '…'` — a bare `su` wants a tty and fails without one.
@@ -94,4 +98,5 @@ the kernel), restart Shizuku after every reboot, and always call the helper as
 | `11-port-log.md` | iteration log of the port, including the dead ends |
 | `12-solution.md` | **the working configuration, verification output, and how `stamp-off 0x100` was measured** |
 | `13-app-and-sudaemon.md` | the one-tap app, why it needs Shizuku, the `su` daemon, and the tty pitfall |
-| `android-app/` | the app project, source only (the exploit binary is not included) |
+| `android-app/` | the app project, source only |
+| `bin/` | a prebuilt exploit binary — **hard-locked to the one build listed above**; read its README before running anything |
