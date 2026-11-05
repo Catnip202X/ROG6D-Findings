@@ -101,3 +101,40 @@ device.
 4. The BSS scratch region is still unverified. If it is not zero at runtime,
    the very first dereference of the fake lock faults — which would look exactly
    like this. A different, larger gap from the 88 candidates is a cheap A/B.
+
+
+## Iteration 3 — the scratch region is not the problem
+
+A/B test: the whole exploit was rebuilt with `OFF_RUN_START` moved from
+`__bss_start+0x1188` (`0x298a188`, a 0xe90 gap) to `0x29d5e70` (inside a 188 KB
+gap). `--probe-scratch` (a harmless zero-write into the scratch) crashes at
+stage `t` in **both** cases.
+
+So the crash happens on the first `__sched_setscheduler` against the armed
+task, independently of where the fake lock lives.
+
+## Correction to an earlier conclusion
+
+The `--poison` panic was taken as proof that the stamp lands on the waiter. That
+inference is too strong: poisoning a *slightly misplaced* offset inside the
+kernel stack would also panic (e.g. by corrupting the return path), without ever
+hitting the waiter fields.
+
+What is actually established: **the stamp writes into the target thread's kernel
+stack region**. Whether it lands exactly on `rt_mutex_waiter` (so that
+`waiter->prio` really is our `equal_prio`) is a separate question, and the fact
+that `--equal-ctl` with prio 120 *and* 121 both crash suggests it may not.
+
+## Next step: measure the stamp offset instead of assuming it
+
+The waiter address is leaked at runtime (`waiter=ffffffc0xxxxxxxx`), so the
+correct value can be derived if the sigreturn frame's `vregs` address is known.
+The reference probe already has the modes needed for this:
+
+- `sig` loop: self-signal storm exercising `restore_fpsimd_context`
+- `futex` loop: exercising `futex_wait_requeue_pi`
+- `dump` / `crest` / `map`: "at instruction X, register Y stably holds VA Z"
+
+Both paths sit on the same thread stack below the exception-entry `pt_regs`, so
+the difference between the two SP values gives the true `stamp_off` for this
+build. Doing that is the correct replacement for the current guess (0xe0).
